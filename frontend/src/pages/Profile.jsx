@@ -5,21 +5,37 @@ import { Settings, UserPlus, UserMinus, Calendar } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import api from '../utils/api';
+import { demoData } from '../utils/demoData';
 import PostCard from '../components/Posts/PostCard';
+import DemoBanner from '../components/common/DemoBanner';
 
 export default function Profile() {
   const { username } = useParams();
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isDemo } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const [profile, setProfile] = useState(null);
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [followLoading, setFollowLoading] = useState(false);
 
   useEffect(() => {
+    if (isDemo) {
+      const found = demoData.users.find(u => u.username === username);
+      if (found) {
+        const isOwn = found.id === demoData.currentUser.id;
+        setProfile({ ...found, isOwnProfile: isOwn, isFollowing: false });
+        setPosts(demoData.posts.filter(p => p.authorId === found.id));
+      } else if (currentUser?.username === username) {
+        setProfile({ ...demoData.currentUser, isOwnProfile: true, isFollowing: false });
+        setPosts(demoData.posts.filter(p => p.authorId === demoData.currentUser.id));
+      } else {
+        setProfile(null);
+      }
+      setLoading(false);
+      return;
+    }
     loadProfile();
-  }, [username]);
+  }, [username, isDemo]);
 
   const loadProfile = async () => {
     try {
@@ -38,36 +54,10 @@ export default function Profile() {
     }
   };
 
-  const handleFollow = async () => {
-    setFollowLoading(true);
-    try {
-      if (profile.isFollowing) {
-        const result = await api.unfollowUser(username);
-        setProfile((p) => ({ ...p, isFollowing: false, _count: result._count }));
-        toast.success(`Unfollowed @${username}`);
-      } else {
-        const result = await api.followUser(username);
-        setProfile((p) => ({ ...p, isFollowing: true, _count: result._count }));
-        toast.success(`Following @${username}`);
-      }
-    } catch (err) {
-      toast.error(err.message || 'Failed to update follow status');
-    } finally {
-      setFollowLoading(false);
-    }
-  };
-
-  const handlePostDelete = (postId) => {
-    setPosts((prev) => prev.filter((p) => p.id !== postId));
-  };
-
-  const handlePostUpdate = (updatedPost) => {
-    setPosts((prev) => prev.map((p) => (p.id === updatedPost.id ? { ...p, ...updatedPost } : p)));
-  };
-
   if (loading) {
     return (
       <div className="max-w-xl mx-auto space-y-4">
+        {isDemo && <DemoBanner />}
         <div className="card p-6 animate-pulse">
           <div className="flex items-center gap-4 mb-4">
             <div className="w-20 h-20 rounded-full skeleton" />
@@ -83,10 +73,22 @@ export default function Profile() {
     );
   }
 
-  if (!profile) return null;
+  if (!profile) {
+    return (
+      <div className="max-w-xl mx-auto">
+        {isDemo && <DemoBanner />}
+        <div className="card p-8 text-center">
+          <h3 className="font-semibold text-surface-900 dark:text-white mb-2">User not found</h3>
+          <p className="text-sm text-surface-500">The user @{username} doesn't exist.</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-xl mx-auto space-y-4">
+      {isDemo && <DemoBanner />}
+
       {/* Profile card */}
       <div className="card p-6">
         <div className="flex items-start gap-4">
@@ -103,35 +105,20 @@ export default function Profile() {
               </div>
               {profile.isOwnProfile ? (
                 <Link
-                  to="/settings/profile"
+                  to={isDemo ? '#' : '/settings/profile'}
                   className="btn-secondary text-sm px-4 py-2 flex items-center gap-2 shrink-0"
+                  onClick={isDemo ? (e) => { e.preventDefault(); toast.info('Run locally to edit profile'); } : undefined}
                 >
                   <Settings size={14} />
                   <span className="hidden sm:inline">Edit</span>
                 </Link>
               ) : (
                 <button
-                  onClick={handleFollow}
-                  disabled={followLoading}
-                  className={`text-sm px-4 py-2 rounded-xl font-medium transition-all flex items-center gap-2 shrink-0 ${
-                    profile.isFollowing
-                      ? 'bg-surface-100 dark:bg-surface-800 text-surface-700 dark:text-surface-300 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500 border border-surface-200 dark:border-surface-700'
-                      : 'bg-pulse-600 text-white hover:bg-pulse-700'
-                  }`}
+                  className="btn-primary text-sm px-4 py-2 flex items-center gap-2 shrink-0"
+                  onClick={() => isDemo ? toast.info('Follow requires backend') : null}
                 >
-                  {followLoading ? (
-                    <span className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                  ) : profile.isFollowing ? (
-                    <>
-                      <UserMinus size={14} />
-                      <span className="hidden sm:inline">Following</span>
-                    </>
-                  ) : (
-                    <>
-                      <UserPlus size={14} />
-                      <span className="hidden sm:inline">Follow</span>
-                    </>
-                  )}
+                  <UserPlus size={14} />
+                  <span className="hidden sm:inline">Follow</span>
                 </button>
               )}
             </div>
@@ -180,8 +167,8 @@ export default function Profile() {
             <PostCard
               key={post.id}
               post={post}
-              onPostUpdate={handlePostUpdate}
-              onPostDelete={handlePostDelete}
+              onPostUpdate={(updated) => setPosts(prev => prev.map(p => p.id === updated.id ? { ...p, ...updated } : p))}
+              onPostDelete={(id) => setPosts(prev => prev.filter(p => p.id !== id))}
             />
           ))
         )}

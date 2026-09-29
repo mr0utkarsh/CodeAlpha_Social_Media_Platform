@@ -33,6 +33,11 @@ export default function Login() {
       toast.success('Welcome back!');
       navigate('/');
     } catch (err) {
+      if (err.message === 'DEMO_MODE') {
+        toast.success('Welcome! (Demo mode)');
+        navigate('/');
+        return;
+      }
       toast.error(err.message || 'Login failed');
     } finally {
       setLoading(false);

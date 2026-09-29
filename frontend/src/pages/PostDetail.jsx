@@ -5,6 +5,8 @@ import { ArrowLeft, Heart, Send, Trash2 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import api from '../utils/api';
+import { demoData } from '../utils/demoData';
+import DemoBanner from '../components/common/DemoBanner';
 
 function timeAgo(dateString) {
   const seconds = Math.floor((new Date() - new Date(dateString)) / 1000);
@@ -20,18 +22,29 @@ function timeAgo(dateString) {
 
 export default function PostDetail() {
   const { id } = useParams();
-  const { user } = useAuth();
+  const { user, isDemo } = useAuth();
   const toast = useToast();
   const navigate = useNavigate();
   const [post, setPost] = useState(null);
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState('');
   const [loading, setLoading] = useState(true);
-  const [submittingComment, setSubmittingComment] = useState(false);
 
   useEffect(() => {
+    if (isDemo) {
+      const found = demoData.posts.find(p => p.id === id);
+      if (found) {
+        setPost(found);
+        setComments([
+          { id: 'c1', content: 'This really resonates with me!', author: demoData.users[2], authorId: demoData.users[2].id, createdAt: new Date(Date.now() - 3600000).toISOString() },
+          { id: 'c2', content: 'Great perspective, thanks for sharing.', author: demoData.users[4], authorId: demoData.users[4].id, createdAt: new Date(Date.now() - 1800000).toISOString() },
+        ]);
+      }
+      setLoading(false);
+      return;
+    }
     loadPost();
-  }, [id]);
+  }, [id, isDemo]);
 
   const loadPost = async () => {
     try {
@@ -50,51 +63,10 @@ export default function PostDetail() {
     }
   };
 
-  const handleLike = async () => {
-    try {
-      if (post.isLiked) {
-        await api.unlikePost(id);
-        setPost((p) => ({ ...p, isLiked: false, _count: { ...p._count, likes: p._count.likes - 1 } }));
-      } else {
-        await api.likePost(id);
-        setPost((p) => ({ ...p, isLiked: true, _count: { ...p._count, likes: p._count.likes + 1 } }));
-      }
-    } catch {
-      toast.error('Failed to update like');
-    }
-  };
-
-  const handleAddComment = async (e) => {
-    e.preventDefault();
-    if (!commentText.trim()) return;
-    setSubmittingComment(true);
-    try {
-      const comment = await api.addComment(id, commentText.trim());
-      setComments((prev) => [...prev, comment]);
-      setPost((p) => ({ ...p, _count: { ...p._count, comments: p._count.comments + 1 } }));
-      setCommentText('');
-      toast.success('Comment added');
-    } catch (err) {
-      toast.error(err.message || 'Failed to add comment');
-    } finally {
-      setSubmittingComment(false);
-    }
-  };
-
-  const handleDeleteComment = async (commentId) => {
-    try {
-      await api.deleteComment(commentId);
-      setComments((prev) => prev.filter((c) => c.id !== commentId));
-      setPost((p) => ({ ...p, _count: { ...p._count, comments: p._count.comments - 1 } }));
-      toast.success('Comment deleted');
-    } catch {
-      toast.error('Failed to delete comment');
-    }
-  };
-
   if (loading) {
     return (
       <div className="max-w-xl mx-auto">
+        {isDemo && <DemoBanner />}
         <div className="card p-5 space-y-4 animate-pulse">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-full skeleton" />
@@ -112,11 +84,22 @@ export default function PostDetail() {
     );
   }
 
-  if (!post) return null;
+  if (!post) {
+    return (
+      <div className="max-w-xl mx-auto">
+        {isDemo && <DemoBanner />}
+        <div className="card p-8 text-center">
+          <h3 className="font-semibold text-surface-900 dark:text-white mb-2">Post not found</h3>
+          <button onClick={() => navigate('/')} className="btn-primary text-sm mt-4">Go Home</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-xl mx-auto space-y-4">
-      {/* Back button */}
+      {isDemo && <DemoBanner />}
+
       <button
         onClick={() => navigate(-1)}
         className="flex items-center gap-2 text-surface-500 hover:text-surface-700 dark:hover:text-surface-300 transition-colors mb-2"
@@ -125,7 +108,6 @@ export default function PostDetail() {
         <span className="text-sm font-medium">Back</span>
       </button>
 
-      {/* Post */}
       <div className="card">
         <div className="p-5">
           <Link to={`/profile/${post.author?.username}`} className="flex items-center gap-3 mb-4">
@@ -152,13 +134,12 @@ export default function PostDetail() {
             />
           )}
 
-          {/* Actions */}
           <div className="flex items-center gap-4 pt-3 border-t border-surface-100 dark:border-surface-800/50">
             <button
-              onClick={handleLike}
               className={`flex items-center gap-2 px-3 py-2 rounded-lg hover:bg-surface-100 dark:hover:bg-surface-800 transition-all ${
                 post.isLiked ? 'text-red-500' : 'text-surface-500'
               }`}
+              onClick={() => isDemo ? null : null}
             >
               <Heart size={18} fill={post.isLiked ? 'currentColor' : 'none'} />
               <span className="text-sm font-medium">{post._count?.likes || 0}</span>
@@ -170,7 +151,10 @@ export default function PostDetail() {
         </div>
 
         {/* Comment input */}
-        <form onSubmit={handleAddComment} className="px-5 py-3 border-t border-surface-100 dark:border-surface-800/50 flex gap-3">
+        <form
+          onSubmit={(e) => { e.preventDefault(); if (isDemo) toast.info('Comments require backend'); }}
+          className="px-5 py-3 border-t border-surface-100 dark:border-surface-800/50 flex gap-3"
+        >
           <img
             src={user?.avatar || `https://api.dicebear.com/7.0/persona/svg?seed=${user?.username}`}
             alt=""
@@ -181,14 +165,10 @@ export default function PostDetail() {
               type="text"
               value={commentText}
               onChange={(e) => setCommentText(e.target.value)}
-              placeholder="Write a comment..."
+              placeholder={isDemo ? 'Comments available in local setup...' : 'Write a comment...'}
               className="flex-1 bg-surface-50 dark:bg-surface-800 rounded-xl px-4 py-2 text-sm border border-surface-200 dark:border-surface-700 outline-none focus:ring-2 focus:ring-pulse-500/30 focus:border-pulse-500 transition-all"
             />
-            <button
-              type="submit"
-              disabled={!commentText.trim() || submittingComment}
-              className="btn-primary px-3 py-2 disabled:opacity-50"
-            >
+            <button type="submit" className="btn-primary px-3 py-2">
               <Send size={16} />
             </button>
           </div>
@@ -226,15 +206,6 @@ export default function PostDetail() {
                   </div>
                   <p className="text-sm text-surface-600 dark:text-surface-300 leading-relaxed">{comment.content}</p>
                 </div>
-                {comment.authorId === user?.id && (
-                  <button
-                    onClick={() => handleDeleteComment(comment.id)}
-                    className="text-surface-400 hover:text-red-500 transition-colors p-1 shrink-0"
-                    title="Delete comment"
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                )}
               </div>
             </motion.div>
           ))

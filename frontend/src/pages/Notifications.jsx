@@ -3,7 +3,10 @@ import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Heart, MessageCircle, UserPlus, Bell, CheckCheck } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
+import { demoData } from '../utils/demoData';
+import DemoBanner from '../components/common/DemoBanner';
 
 function timeAgo(dateString) {
   const seconds = Math.floor((new Date() - new Date(dateString)) / 1000);
@@ -44,26 +47,29 @@ function NotificationIcon({ type }) {
 
 function notificationText(notification) {
   switch (notification.type) {
-    case 'LIKE':
-      return 'liked your post';
-    case 'COMMENT':
-      return 'commented on your post';
-    case 'FOLLOW':
-      return 'started following you';
-    default:
-      return 'interacted with you';
+    case 'LIKE': return 'liked your post';
+    case 'COMMENT': return 'commented on your post';
+    case 'FOLLOW': return 'started following you';
+    default: return 'interacted with you';
   }
 }
 
 export default function Notifications() {
   const toast = useToast();
+  const { isDemo } = useAuth();
   const [notifications, setNotifications] = useState([]);
   const [unreadCount, setUnreadCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    if (isDemo) {
+      setNotifications(demoData.notifications);
+      setUnreadCount(demoData.notifications.filter(n => !n.read).length);
+      setLoading(false);
+      return;
+    }
     loadNotifications();
-  }, []);
+  }, [isDemo]);
 
   const loadNotifications = async () => {
     try {
@@ -79,6 +85,11 @@ export default function Notifications() {
   };
 
   const handleMarkAllRead = async () => {
+    if (isDemo) {
+      setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+      setUnreadCount(0);
+      return;
+    }
     try {
       await api.markAllNotificationsRead();
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
@@ -89,21 +100,10 @@ export default function Notifications() {
     }
   };
 
-  const handleMarkRead = async (id) => {
-    try {
-      await api.markNotificationRead(id);
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, read: true } : n))
-      );
-      setUnreadCount((c) => Math.max(0, c - 1));
-    } catch {
-      // Silent fail for single notification
-    }
-  };
-
   if (loading) {
     return (
       <div className="max-w-xl mx-auto">
+        {isDemo && <DemoBanner />}
         <h1 className="text-xl font-bold text-surface-900 dark:text-white mb-4">Notifications</h1>
         <div className="space-y-2">
           {[1, 2, 3, 4, 5].map((i) => (
@@ -122,6 +122,8 @@ export default function Notifications() {
 
   return (
     <div className="max-w-xl mx-auto">
+      {isDemo && <DemoBanner />}
+
       <div className="flex items-center justify-between mb-4">
         <h1 className="text-xl font-bold text-surface-900 dark:text-white">Notifications</h1>
         {unreadCount > 0 && (
@@ -150,16 +152,15 @@ export default function Notifications() {
               key={notification.id}
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              className={`card p-4 flex items-center gap-3 transition-all cursor-pointer ${
+              className={`card p-4 flex items-center gap-3 transition-all ${
                 !notification.read ? 'bg-pulse-50/50 dark:bg-pulse-900/10 border-pulse-200 dark:border-pulse-800' : ''
               }`}
-              onClick={() => !notification.read && handleMarkRead(notification.id)}
             >
               <NotificationIcon type={notification.type} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm text-surface-700 dark:text-surface-200">
                   <Link
-                    to={`/profile/${notification.actor?.username}`}
+                    to={isDemo ? '#' : `/profile/${notification.actor?.username}`}
                     className="font-semibold hover:underline"
                   >
                     {notification.actor?.name}

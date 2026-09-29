@@ -1,25 +1,34 @@
 import { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import { Search, TrendingUp, UserPlus } from 'lucide-react';
 import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
+import { demoData } from '../utils/demoData';
 import PostCard from '../components/Posts/PostCard';
+import DemoBanner from '../components/common/DemoBanner';
 
 export default function Explore() {
   const toast = useToast();
-  const navigate = useNavigate();
+  const { isDemo } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
   const [trendingPosts, setTrendingPosts] = useState([]);
   const [suggestedUsers, setSuggestedUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searching, setSearching] = useState(false);
-  const [followLoading, setFollowLoading] = useState({});
 
   useEffect(() => {
+    if (isDemo) {
+      const sorted = [...demoData.posts].sort((a, b) => b._count.likes - a._count.likes);
+      setTrendingPosts(sorted);
+      setSuggestedUsers(demoData.users.slice(1, 7));
+      setLoading(false);
+      return;
+    }
     loadExploreData();
-  }, []);
+  }, [isDemo]);
 
   const loadExploreData = async () => {
     try {
@@ -43,6 +52,14 @@ export default function Explore() {
       setSearchResults([]);
       return;
     }
+    if (isDemo) {
+      const results = demoData.users.filter(
+        u => u.name.toLowerCase().includes(query.toLowerCase()) ||
+             u.username.toLowerCase().includes(query.toLowerCase())
+      );
+      setSearchResults(results.map(u => ({ ...u, isFollowing: false })));
+      return;
+    }
     setSearching(true);
     try {
       const results = await api.searchUsers(query);
@@ -54,32 +71,14 @@ export default function Explore() {
     }
   };
 
-  const handleFollow = async (username, idx) => {
-    setFollowLoading((prev) => ({ ...prev, [username]: true }));
-    try {
-      const result = await api.followUser(username);
-      setSuggestedUsers((prev) =>
-        prev.map((u) => u.username === username ? { ...u, isFollowing: true } : u)
-      );
-      setSearchResults((prev) =>
-        prev.map((u) => u.username === username ? { ...u, isFollowing: true } : u)
-      );
-      toast.success(`Following @${username}`);
-    } catch (err) {
-      toast.error(err.message || 'Failed to follow');
-    } finally {
-      setFollowLoading((prev) => ({ ...prev, [username]: false }));
-    }
-  };
-
-  const isSearching = searchQuery.trim().length > 0;
+  const isSearchingActive = searchQuery.trim().length > 0;
 
   return (
     <div className="max-w-xl mx-auto space-y-6">
+      {isDemo && <DemoBanner />}
+
       <div>
         <h1 className="text-xl font-bold text-surface-900 dark:text-white mb-4">Explore</h1>
-        
-        {/* Search */}
         <div className="relative">
           <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-surface-400" />
           <input
@@ -93,7 +92,7 @@ export default function Explore() {
       </div>
 
       {/* Search results */}
-      {isSearching && (
+      {isSearchingActive && (
         <div className="space-y-3">
           <h2 className="text-sm font-semibold text-surface-500 uppercase tracking-wider">Search Results</h2>
           {searching ? (
@@ -126,22 +125,9 @@ export default function Explore() {
                   <p className="font-semibold text-sm text-surface-900 dark:text-white truncate">{u.name}</p>
                   <p className="text-xs text-surface-500 truncate">@{u.username}</p>
                 </Link>
-                {!u.isFollowing ? (
-                  <button
-                    onClick={() => handleFollow(u.username)}
-                    disabled={followLoading[u.username]}
-                    className="btn-primary text-xs px-3 py-1.5 flex items-center gap-1.5 shrink-0"
-                  >
-                    {followLoading[u.username] ? (
-                      <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <UserPlus size={13} />
-                    )}
-                    Follow
-                  </button>
-                ) : (
-                  <span className="text-xs text-surface-400 px-3 py-1.5">Following</span>
-                )}
+                <span className="text-xs text-surface-400 px-3 py-1.5">
+                  {u._count?.followers || 0} followers
+                </span>
               </div>
             ))
           )}
@@ -149,7 +135,7 @@ export default function Explore() {
       )}
 
       {/* Default explore content */}
-      {!isSearching && (
+      {!isSearchingActive && (
         <>
           {/* Suggested users */}
           <div>
@@ -166,10 +152,6 @@ export default function Explore() {
                   </div>
                 ))}
               </div>
-            ) : suggestedUsers.length === 0 ? (
-              <div className="card p-6 text-center">
-                <p className="text-surface-500 text-sm">You're following everyone! Check back later.</p>
-              </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {suggestedUsers.slice(0, 6).map((u) => (
@@ -185,17 +167,9 @@ export default function Explore() {
                       <p className="font-semibold text-sm text-surface-900 dark:text-white truncate">{u.name}</p>
                       <p className="text-xs text-surface-500 truncate">@{u.username}</p>
                     </Link>
-                    <button
-                      onClick={() => handleFollow(u.username)}
-                      disabled={followLoading[u.username]}
-                      className="btn-primary text-xs px-3 py-1.5 shrink-0"
-                    >
-                      {followLoading[u.username] ? (
-                        <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      ) : (
-                        'Follow'
-                      )}
-                    </button>
+                    <span className="text-xs text-pulse-600 dark:text-pulse-400 font-medium px-2 py-1">
+                      {u._count?.followers || 0}
+                    </span>
                   </div>
                 ))}
               </div>
@@ -224,13 +198,7 @@ export default function Explore() {
             ) : (
               <div className="space-y-4">
                 {trendingPosts.slice(0, 8).map((post) => (
-                  <PostCard
-                    key={post.id}
-                    post={post}
-                    onPostUpdate={(updated) => {
-                      setTrendingPosts((prev) => prev.map((p) => p.id === updated.id ? { ...p, ...updated } : p));
-                    }}
-                  />
+                  <PostCard key={post.id} post={post} />
                 ))}
               </div>
             )}
