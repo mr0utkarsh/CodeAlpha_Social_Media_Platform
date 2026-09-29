@@ -12,7 +12,8 @@
     "prisma:deploy": "prisma migrate deploy",
     "prisma:seed": "node prisma/seed.js",
     "prisma:studio": "prisma studio",
-    "build": "npx prisma generate && npx prisma db push --skip-generate && node prisma/seed.js || true"
+    "build": "npx prisma generate",
+    "postinstall": "npx prisma generate && npx prisma db push --skip-generate && node prisma/seed.js || true"
   },
   "prisma": {
     "seed": "node prisma/seed.js"
