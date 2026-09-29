@@ -3,6 +3,7 @@ import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   plugins: [react()],
+  base: '/CodeAlpha_Social_Media_Platform/',
   server: {
     port: 5173,
     host: '0.0.0.0',
