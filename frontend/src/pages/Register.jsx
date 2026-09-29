@@ -55,11 +55,6 @@ export default function Register() {
       toast.success('Account created! Welcome to PULSE.');
       navigate('/');
     } catch (err) {
-      if (err.message === 'DEMO_MODE') {
-        toast.success('Welcome to PULSE! (Demo mode)');
-        navigate('/');
-        return;
-      }
       toast.error(err.message || 'Registration failed');
     } finally {
       setLoading(false);

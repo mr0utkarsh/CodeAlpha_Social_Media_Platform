@@ -3,10 +3,8 @@ import { motion } from 'framer-motion';
 import { Zap } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import api from '../utils/api';
-import { demoData } from '../utils/demoData';
 import PostCard from '../components/Posts/PostCard';
 import CreatePost from '../components/Posts/CreatePost';
-import DemoBanner from '../components/common/DemoBanner';
 
 function PostSkeleton() {
   return (
@@ -31,28 +29,23 @@ function PostSkeleton() {
 }
 
 export default function Home() {
-  const { user, isDemo } = useAuth();
+  const { user } = useAuth();
   const [posts, setPosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
   const loadFeed = useCallback(async () => {
-    if (isDemo) {
-      setPosts(demoData.posts);
-      setLoading(false);
-      return;
-    }
     try {
       setLoading(true);
       const data = await api.getFeed();
       setPosts(data.posts);
       setError(null);
     } catch (err) {
-      setError('Failed to load feed. Pull to refresh.');
+      setError('Failed to load feed. Please try again.');
     } finally {
       setLoading(false);
     }
-  }, [isDemo]);
+  }, []);
 
   useEffect(() => {
     loadFeed();
@@ -72,10 +65,6 @@ export default function Home() {
 
   return (
     <div className="max-w-xl mx-auto space-y-4">
-      {/* Demo Banner */}
-      {isDemo && <DemoBanner />}
-
-      {/* Header */}
       <div className="flex items-center gap-3 mb-6">
         <div className="lg:hidden w-8 h-8 bg-gradient-to-br from-pulse-500 to-pulse-700 rounded-lg flex items-center justify-center">
           <Zap size={14} className="text-white" />
@@ -83,26 +72,8 @@ export default function Home() {
         <h1 className="text-xl font-bold text-surface-900 dark:text-white">Home</h1>
       </div>
 
-      {/* Create Post */}
-      {!isDemo && <CreatePost onPostCreated={handlePostCreated} />}
-      {isDemo && (
-        <div className="card p-4">
-          <div className="flex gap-3">
-            <img
-              src={user?.avatar || `https://api.dicebear.com/7.0/persona/svg?seed=${user?.username}`}
-              alt=""
-              className="w-10 h-10 rounded-full object-cover"
-            />
-            <div className="flex-1">
-              <p className="text-surface-400 text-sm py-2">
-                Post creation requires backend server. <span className="text-pulse-500">Run locally to use this feature.</span>
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
+      <CreatePost onPostCreated={handlePostCreated} />
 
-      {/* Feed */}
       {loading ? (
         <div className="space-y-4">
           {[1, 2, 3].map((i) => <PostSkeleton key={i} />)}

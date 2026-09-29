@@ -74,6 +74,13 @@ const commentTexts = [
 async function main() {
   console.log('🌱 Seeding PULSE database...');
 
+  // Check if already seeded
+  const existingUsers = await prisma.user.count();
+  if (existingUsers > 5) {
+    console.log('⏭️ Database already seeded. Skipping...');
+    return;
+  }
+
   // Clear existing data
   await prisma.notification.deleteMany();
   await prisma.like.deleteMany();

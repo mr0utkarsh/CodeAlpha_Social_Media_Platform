@@ -1,15 +1,12 @@
-// Detect if we're running on GitHub Pages (no backend available)
-const IS_GITHUB_PAGES = window.location.hostname.includes('github.io');
-
-// Backend URL - use proxy in dev, full URL in production
-const API_BASE = IS_GITHUB_PAGES 
-  ? '' // No backend available on GitHub Pages
-  : '/api';
+// API Configuration
+// Local: /api (proxied by Vite)
+// Production: Backend URL from environment or default
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 class ApiClient {
   constructor() {
     this.token = localStorage.getItem('pulse_token');
-    this.isDemoMode = IS_GITHUB_PAGES;
+    this.isDemoMode = false;
   }
 
   setToken(token) {
@@ -26,10 +23,6 @@ class ApiClient {
   }
 
   async request(endpoint, options = {}) {
-    if (this.isDemoMode) {
-      throw new Error('DEMO_MODE');
-    }
-
     const token = this.getToken();
     const headers = {
       'Content-Type': 'application/json',
@@ -45,7 +38,7 @@ class ApiClient {
     // Check if response is actually JSON
     const contentType = response.headers.get('content-type');
     if (!contentType || !contentType.includes('application/json')) {
-      throw new Error('Backend server not available. Please run the backend locally.');
+      throw new Error('Backend server not available. Please try again later.');
     }
 
     const data = await response.json();
