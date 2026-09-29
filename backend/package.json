@@ -7,8 +7,7 @@
   "scripts": {
     "dev": "node --watch src/index.js",
     "start": "node src/index.js",
-    "build": "npx prisma generate && npx prisma db push --skip-generate",
-    "postbuild": "node prisma/seed.js || echo 'Seed skipped'",
+    "build": "npx prisma generate && npx prisma migrate deploy",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy",
